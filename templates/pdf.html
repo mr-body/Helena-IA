@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat with Helena</title>
+    <style>
+        .answer {
+            pointer-events: none;
+            /* Desativa eventos de ponteiro para a resposta */
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/typeit/7.0.4/typeit.min.js"></script>
+</head>
+
+<style>
+    .code{
+        background-color: black;
+        color: white;
+
+    }
+</style>
+
+<style>
+    .active{
+        background-color: green;
+    }
+</style>
+
+<body>
+    <select id="language-select">
+        <option value="en-US">English</option>
+        <option value="pt-BR">Português (Brasil)</option>
+        <option value="ja-JP">日本語 (Japanese)</option>
+        <option value="fr-FR">Français (French)</option>
+        <option value="es-ES">Español (Spanish)</option>
+    </select>
+
+    <button id="autoSay-btn" class="btn_automatic">Ativar modo speech-read</button>
+
+    <h1>Chat with Helena-PDF</h1>
+    <div id="chat-container">
+        <div id="chat-messages"></div>
+        <input type="text" id="textInput" placeholder="Type your message here...">
+        <input type="file" id="fileInput">
+        <button onclick="sendMessage()">Send</button>
+        <button id="toggle-btn">Start Listening</button>
+        <button id="stop-btn">Stop Listening</button>
+    </div>
+
+    <script>
+        let index = 0
+        let tolking = false
+
+
+        // Evento de clique no botão de alternar
+        document.getElementById('autoSay-btn').addEventListener('click', function () {
+            tolking = !tolking; // Correção: usar atribuição para alternar entre verdadeiro e falso
+            document.querySelector('.btn_automatic').classList.toggle('active');
+        });
+
+        function sendMessage() {
+
+            index++;
+            var userInput = document.getElementById("textInput").value;
+            var chatMessages = document.getElementById("chat-messages");
+
+            // Obter o tempo de início da requisição
+            var startTime = performance.now();
+
+            // Append user input as question
+            chatMessages.innerHTML += `<span class='question'>${userInput}</span>`;
+            // Append user input as question
+            chatMessages.innerHTML += `<div><span class='tmpanswer' id='tmp${index}'>Loading...</span></div>`;
+
+
+
+            var fileInput = document.getElementById('fileInput');
+            var file = fileInput.files[0];
+
+            var textInput = document.getElementById('textInput');
+            var text = textInput.value;
+
+            var formData = new FormData();
+            formData.append('file', file);
+            formData.append('text', text);
+
+            var xhr = new XMLHttpRequest();
+            xhr.open('POST', '/question/pdfFile', true);
+            xhr.onload = function () {
+                if (xhr.status === 200) {
+                    var response = xhr.responseText;
+
+                    var response = response;
+                    // Format the response using marked.js
+                    var formattedResponse = marked.parse(response);
+
+                    // Calcular o tempo de resposta
+                    var endTime = performance.now();
+                    var responseTime = (endTime - startTime) / 1000; // Convertendo para segundos
+
+                    if (tolking == false) {
+
+                        // Append response
+                        chatMessages.innerHTML += `
+                            <div>
+                                <span class='answer${index}'>${formattedResponse}</span>
+                                <button onclick="readText(document.querySelector('.answer${index}').textContent)">Falar</button>
+                                <button onclick="CopyText(document.querySelector('.answer${index}').textContent)">Copiar</button>
+                                <span id="timeout">${responseTime.toFixed(2)}</span>
+                            </div>
+                        `;
+                        // // Use TypeIt for typing animation
+                        // new TypeIt(`.answer${index}`, {
+                        //     speed: 50,
+                        //     startDelay: 500,
+                        //     waitUntilVisible: true,
+                        //     cursor: false // Remove vertical bar cursor
+                        // }).type(formattedResponse).go();
+                    }
+                    else {
+
+                        // Append response
+                        chatMessages.innerHTML += `
+                            <div>
+                                <span class='answer${index}'>${formattedResponse}</span>
+                                <button onclick="readText(document.querySelector('.answer${index}').textContent)">Falar</button>
+                                <button onclick="CopyText(document.querySelector('.answer${index}').textContent)">Copiar</button>
+                                <span id="timeout">${responseTime.toFixed(2)}</span>
+                            </div>
+                        `;
+
+                        readText(document.querySelector(`.answer${index}`).textContent)
+                    }
+
+                    document.getElementById(`tmp${index}`).style.display="none"
+
+                    // Scroll to bottom
+                    chatMessages.scrollTop = chatMessages.scrollHeight;
+                }
+            };
+            xhr.send(formData);
+        }
+
+        let recognition; // variável global para manter a instância do reconhecimento
+
+        // Verifica se o navegador suporta a API de reconhecimento de fala
+        if ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window) {
+            recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+
+            // Definir propriedades da API de reconhecimento de fala
+            recognition.interimResults = true; // Ativar resultados intermediários enquanto fala
+
+            // Evento chamado quando há resultados
+            recognition.onresult = function (event) {
+                const transcript = Array.from(event.results)
+                    .map(result => result[0].transcript)
+                    .join('');
+                document.getElementById("textInput").value = transcript;
+            };
+
+            // Evento chamado quando o reconhecimento de fala termina
+            recognition.onend = function () {
+                if (tolking) { // Correção: verificar se tolking é verdadeiro
+                    sendMessage();
+                }
+            };
+
+
+            // Evento chamado quando ocorre um erro
+            recognition.onerror = function (event) {
+                console.error('Speech recognition error detected: ', event.error);
+            };
+
+            // Evento de clique no botão de alternar
+            document.getElementById('toggle-btn').addEventListener('click', function () {
+                recognition.lang = document.getElementById('language-select').value; // Definir o idioma selecionado
+                recognition.start(); // Iniciar reconhecimento de fala
+            });
+
+            // Evento de clique no botão de parar
+            document.getElementById('stop-btn').addEventListener('click', function () {
+                recognition.stop(); // Parar reconhecimento de fala
+            });
+        } else {
+            console.error('Speech recognition not supported on this browser.');
+        }
+
+        function readText(texto) {
+            var idiomaSelecionado = document.getElementById("language-select").value;
+            var synth = window.speechSynthesis;
+            var utterance = new SpeechSynthesisUtterance(texto);
+            utterance.lang = idiomaSelecionado;
+            synth.speak(utterance);
+        }
+
+        // Modifique a função CopyText para receber o texto como parâmetro
+        function CopyText(texto) {
+            // Cria um elemento de texto oculto para copiar o texto
+            var tempInput = document.createElement("input");
+            // Define o valor do campo de entrada para o texto recebido
+            tempInput.value = texto;
+            // Anexa o campo de entrada ao corpo do documento
+            document.body.appendChild(tempInput);
+            // Seleciona o texto dentro do campo de entrada
+            tempInput.select();
+            // Copia o texto selecionado para a área de transferência
+            document.execCommand("copy");
+            // Remove o campo de entrada temporário
+            document.body.removeChild(tempInput);
+        }
+
+
+        document.addEventListener('keydown', function (event) {
+            // Verifica se a tecla pressionada é a combinação de Ctrl + S
+            if (event.ctrlKey && event.key === 's') {
+                event.preventDefault(); // Previne o comportamento padrão do navegador
+                recognition.lang = document.getElementById('language-select').value; // Definir o idioma selecionado
+                recognition.start(); // Iniciar reconhecimento de fala
+            }
+        })
+    </script>
+</body>
+
+</html>
