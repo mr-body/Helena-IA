@@ -5,6 +5,8 @@ app = Flask(__name__)
 
 app.register_blueprint(question_bp, url_prefix='/question')
 
+#teste
+
 @app.route('/')
 def index():
     return render_template('chat.html')
