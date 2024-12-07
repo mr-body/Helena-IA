@@ -7,7 +7,7 @@ question_bp = Blueprint('question', __name__)
 
 app = Flask(__name__)
 
-generative_ia = GenerativeAI("AIzaSyBgnohJljidNXZBuDa91xh3JvD-gW97__Q") 
+generative_ia = GenerativeAI("AIzaSyD38o8MZEPYTOekcvlUGB3FimnG7_99hgs") 
 
 @question_bp.route('/text', methods=['POST'])
 def generate_response_chat():
